@@ -1,0 +1,22 @@
+{
+  "$schema": "https://open-design.ai/schemas/plugin.v1.json",
+  "specVersion": "1.0.0",
+  "name": "evaluation-contract-mu3xc2is",
+  "title": "Evaluation Contract",
+  "version": "0.1.0",
+  "description": "1. Human annotation: `agree / revise / pending` describes the expected design, not whether an implementation works. 2. Prototype inspection: screenshot and interaction evidence from synthetic UI. 3. Deterministic tests: ",
+  "od": {
+    "kind": "skill",
+    "taskKind": "new-generation",
+    "context": {
+      "skills": [
+        {
+          "path": "./SKILL.md"
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject"
+    ]
+  }
+}
