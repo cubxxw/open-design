@@ -1,0 +1,19 @@
+{
+  "candidateId": "5768d435-a9bf-4f51-84ba-acc70e529479",
+  "projectId": "780a833c-2aee-455c-beb7-8b15db09e65f",
+  "runId": "a41304df-8eb9-4502-a077-59fff8c4597b",
+  "conversationId": "47c59c63-d4d3-4baa-ad7b-02b2b552b796",
+  "provenance": {
+    "summary": "Detected from EVALUATION.md after a successful run.",
+    "detectedAt": 1789552146961
+  },
+  "sourceRefs": [
+    {
+      "kind": "file",
+      "value": "EVALUATION.md",
+      "label": "EVALUATION.md",
+      "size": 5549,
+      "copied": true
+    }
+  ]
+}
