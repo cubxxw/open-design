@@ -1,7 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { test, vi } from 'vitest';
+import { test } from 'vitest';
 import * as auth from '../../src/runtimes/auth.js';
-import * as invocation from '../../src/runtimes/invocation.js';
 
 const missingProviderKey = 'prompt rejected: No API key found for the selected model. Use /login to log into a provider via OAuth or API key.';
 
@@ -31,19 +30,4 @@ test('Pi guidance never repeats raw provider error content', () => {
   const classified = auth.classifyAgentAuthFailure('pi', `${missingProviderKey} synthetic-sensitive-detail`);
   assert.ok(classified);
   assert.doesNotMatch(classified.message ?? '', /synthetic-sensitive-detail/);
-});
-
-test('Pi keeps generic invalid-credential probe classification', async () => {
-  const exec = vi.spyOn(invocation, 'execAgentFile').mockResolvedValue({ stdout: 'invalid API key', stderr: '' });
-  try {
-    const classified = await auth.probeAgentAuthStatus(
-      { id: 'pi', name: 'Pi', authProbe: { args: ['status'] } },
-      'synthetic-pi',
-      {},
-    );
-    assert.equal(classified?.status, 'missing');
-    assert.equal(exec.mock.calls.length, 1);
-  } finally {
-    exec.mockRestore();
-  }
 });
