@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { access, chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,7 +9,7 @@ import { startServer } from '../../src/server.js';
 import { piAuthGuidance } from '../../src/runtimes/auth.js';
 
 type StartedServer = { url: string; server: Server; shutdown?: () => Promise<void> | void };
-type RunStatus = { status: string; error?: string | null; errorCode?: string | null; eventsLogPath: string; exitCode?: number | null; signal?: string | null };
+type RunStatus = { status: string; error?: string | null; errorCode?: string | null; exitCode?: number | null; signal?: string | null };
 const originalShutdownMs = process.env.PI_GRACEFUL_SHUTDOWN_MS;
 const originalStrategyRollout = process.env.OD_NEXT_STRATEGY_ROLLOUT;
 let started: StartedServer | null = null;
@@ -73,11 +73,15 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (mode === 'cancel') return;
   if (mode === 'error') W({ type: 'message_update', assistantMessageEvent: { type: 'error', reason: 'Native Pi fixture failure' } });
   W({ type: 'agent_end' });
-  if (mode === 'nonzero') process.exit(143);
+  // Exercise a natural failure during the grace period, after the turn ends.
+  if (mode === 'nonzero') setTimeout(() => process.exit(143), 80);
 });
 `, 'utf8');
     await chmod(bin, 0o755);
-    process.env.PI_GRACEFUL_SHUTDOWN_MS = '10';
+    // Natural failure must arrive during the production grace period. The
+    // test-only fast shutdown belongs to the cases that exercise host teardown.
+    if (mode === 'nonzero') delete process.env.PI_GRACEFUL_SHUTDOWN_MS;
+    else process.env.PI_GRACEFUL_SHUTDOWN_MS = '10';
     // Exercise Pi's Run transport without starting background strategy discovery.
     process.env.OD_NEXT_STRATEGY_ROLLOUT = 'off';
     started = await startServer({ port: 0, returnServer: true }) as StartedServer;
@@ -131,9 +135,14 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       const expectedCode = mode === 'auth-rejected' ? 'AGENT_AUTH_REQUIRED' : 'AGENT_EXECUTION_FAILED';
       const expectedMessage = mode === 'auth-rejected' ? piAuthGuidance() : 'prompt rejected: network timeout';
       expect(run.errorCode).toBe(expectedCode);
-      const events = (await readFile(run.eventsLogPath, 'utf8')).trim().split('\n')
-        .map(line => JSON.parse(line) as { event: string; data: { message?: string; error?: { code?: string; message?: string; retryable?: boolean } } });
-      const errors = events.filter(event => event.event === 'error');
+      // Terminal status can precede the journal flush. Public replay waits for
+      // completion instead of opening a partially written event log.
+      const replay = await fetch(`${started.url}/api/runs/${runId}/events`);
+      expect(replay.status).toBe(200);
+      const frames = (await replay.text()).trim().split('\n\n');
+      expect(frames.some(frame => frame.split('\n').includes('event: end'))).toBe(true);
+      const errors = frames.filter(frame => frame.split('\n').includes('event: error'))
+        .map(frame => ({ data: JSON.parse(frame.split('\n').find(line => line.startsWith('data: '))!.slice(6)) }));
       expect(errors).toHaveLength(1);
       expect(errors[0]?.data).toMatchObject({
         message: expectedMessage,
